@@ -31,6 +31,33 @@ export const JobContextProvider = ({
   const [loading, setLoading] = useState(false);
   const [currentJob, setCurrentJob] = useState<IJob | null>(null);
 
+  useEffect(() => {
+    const registerServiceWorker = async () => {
+      if ("serviceWorker" in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register("/sw.js");
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          });
+          await saveSubscription(subscription.toJSON());
+        } catch (error) {
+          console.error("Service Worker registration failed:", error);
+        }
+      }
+    };
+
+    const requestNotificationPermission = async () => {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        registerServiceWorker();
+      }
+    };
+
+    fetchJobs();
+    requestNotificationPermission();
+  }, []);
+
   const fetchJobs = async (filters?: IJobFilters) => {
     setLoading(true);
     try {
@@ -48,6 +75,16 @@ export const JobContextProvider = ({
   };
 
   const createJob = async (jobData: IJobPayload) => {
+    // Trigger notification to all subscribers
+    const response = await fetch("/api/push/subscriptions");
+    const subscriptions = await response.json();
+    sendNotification(
+      subscriptions,
+      JSON.stringify({
+        title: "New Job Alert",
+        body: `New job posted: ${jobData.title}`,
+      })
+    );
     try {
       const response = await AxiosClient.post("/api/jobs", {
         method: "POST",
