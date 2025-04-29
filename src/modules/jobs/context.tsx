@@ -1,7 +1,8 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { IJob, IJobPayload, IJobFilters } from "./model";
 import { AxiosClient } from "@/components";
 import toast from "react-hot-toast";
+import { saveSubscription, sendNotification } from "@/lib/webPush";
 
 type IJobState = {
   jobs: IJob[];
@@ -74,19 +75,24 @@ export const JobContextProvider = ({
     }
   };
 
+  const pushSubscriptions = async (title: string) => {
+    const response = await AxiosClient.get("/subscribe");
+    const subscriptions = response?.data?.data;
+    if (subscriptions) {
+      sendNotification(
+        subscriptions,
+        JSON.stringify({
+          title: "New Job Alert",
+          body: `New job posted: ${title}`,
+        })
+      );
+    }
+  };
+
   const createJob = async (jobData: IJobPayload) => {
-    // Trigger notification to all subscribers
-    const response = await fetch("/api/push/subscriptions");
-    const subscriptions = await response.json();
-    sendNotification(
-      subscriptions,
-      JSON.stringify({
-        title: "New Job Alert",
-        body: `New job posted: ${jobData.title}`,
-      })
-    );
+    await pushSubscriptions(jobData?.title);
     try {
-      const response = await AxiosClient.post("/api/jobs", {
+      const response = await AxiosClient.post("/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(jobData),

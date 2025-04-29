@@ -10,7 +10,7 @@ webPush.setVapidDetails(
 );
 
 export const saveSubscription = async (subscription: PushSubscriptionJSON) => {
-  const response = await AxiosClient.post("/api/push/subscribe", subscription);
+  const response = await AxiosClient.post("/subscribe", subscription);
   const data = response.data?.data;
   if (data) {
     return data;
